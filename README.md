@@ -16,19 +16,13 @@ This app ensures the virtual device accurately reflects the physical door's stat
 ## 📋 Prerequisites
 
 1. **Hubitat Elevation Hub**
-2. **Virtual Garage Door Device**: A virtual device with `capability.garageDoorControl` and `capability.contactSensor` (e.g., "Virtual Garage Door" or "Virtual Switch" configured appropriately). **Easiest is to setup a virtual device (1 for each garage door you want to control) and change the driver for each one created to the "Simulated Garage Door Opener V2" you can get in this github repository.**
+2. **Virtual Garage Door Device**: A virtual device with `capability.garageDoorControl` and `capability.contactSensor` (e.g., "Virtual Garage Door" or "Virtual Switch" configured appropriately). **Easiest is to setup a virtual device (1 for each garage door you want to control) and change the driver for each one created to the built in Virtual Garage Door Controller Driver**
 3. **Physical Contact Sensor**: To detect the actual open/closed state of the door/gate.
 4. **Konnected Button Trigger**: Configured in Hubitat with `capability.pushableButton` (one for the opener relay, and optionally one for the buzzer).
 
 ## 🛠️ Installation Instructions
 
-### Steps to install driver if necessary:
-1. Log in to your Hubitat hub and navigate to **Driver Code**.
-2. Click **+ New Driver**.
-3. Paste the **Simulated Garage Door Opener V2** code. Click **Save**.
-
-
-### ⚠️ **CRITICAL**: Because this uses a Parent/Child architecture, **you must install the Parent App first**. Do *not* try to create the Child App directly from the "Add User App" menu, or you will get an "Error 404: has no parent" message.
+ ⚠️ **CRITICAL**: Because this uses a Parent/Child architecture, **you must install the Parent App first**. Do *not* try to create the Child App directly from the "Add User App" menu, or you will get an "Error 404: has no parent" message.
 
 ### Step 1: Add the Code to Hubitat
 1. Log in to your Hubitat hub and navigate to **Apps Code**.
