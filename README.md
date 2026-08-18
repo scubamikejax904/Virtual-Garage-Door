@@ -16,7 +16,7 @@ This app ensures the virtual device accurately reflects the physical door's stat
 ## 📋 Prerequisites
 
 1. **Hubitat Elevation Hub**
-2. **Virtual Garage Door Device**: A virtual device with `capability.garageDoorControl` and `capability.contactSensor` (e.g., "Virtual Garage Door" or "Virtual Switch" configured appropriately). **Easiest is to setup a virtual device (1 for each garage door you want to control) and change the driver for each one created to the built in Virtual Garage Door Controller Driver**
+2. **Virtual Garage Door Device**: A virtual device with `capability.garageDoorControl` and `capability.contactSensor` (e.g., "Virtual Garage Door" or "Virtual Switch" configured appropriately). **Easiest is to setup a virtual device (1 for each garage door you want to control) and change the driver for each one created to the built in Virtual Garage Door Controller Driver, I also reccomend nameing them something that you will remember they are virtual so you don't confuse them with the real sensors/buttons later below when setting up the app** ex: "1 Car Garage Door Controller" or "2 Car Garage Door Controller" etc.
 3. **Physical Contact Sensor**: To detect the actual open/closed state of the door/gate.
 4. **Konnected Button Trigger**: Configured in Hubitat with `capability.pushableButton` (one for the opener relay, and optionally one for the buzzer).
 
