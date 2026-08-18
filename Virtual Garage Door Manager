@@ -1,0 +1,38 @@
+definition(
+    name: "Virtual Garage Door Manager",
+    namespace: "smj_garage",
+    author: "SMJ",
+    description: "Parent app to group and manage Virtual Garage Door instances.",
+    category: "Convenience",
+    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Meta/garage_contact.png",
+    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Meta/garage_contact@2x.png",
+    singleInstance: true,
+    menu: 'Integrations',
+    childApps: [name: "Virtual Garage Door", appName: "Virtual Garage Door SMJ", namespace: "smj_garage"]
+)
+
+preferences {
+    page(name: "mainPage")
+}
+
+def mainPage() {
+    dynamicPage(name: "mainPage", title: "Virtual Garage Door Manager", install: true, uninstall: true) {
+        section("Manage Garage Doors") {
+            paragraph "Tap below to add, edit, or remove individual garage door instances."
+            app(
+                name: "childGarageDoors", 
+                appName: "Virtual Garage Door SMJ", 
+                namespace: "smj_garage", 
+                title: "Add New Garage Door", 
+                multiple: true
+            )
+        }
+    }
+}
+
+def installed() { initialize() }
+def updated() { unsubscribe(); initialize() }
+
+def initialize() {
+    log.info "Manager initialized with ${getChildApps()?.size() ?: 0} active child app(s)."
+}
