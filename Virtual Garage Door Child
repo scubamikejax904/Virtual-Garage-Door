@@ -1,0 +1,168 @@
+/**
+ *  Copyright 2015 SmartThings
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ *  in compliance with the License. You may obtain a copy of the License at:
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0 
+ *
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
+ *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
+ *  for the specific language governing permissions and limitations under the License.
+ *  
+ *  Code taken from LGK Virtual Garage Door and modified By Michael Gartner ScubaMikeJax904 "SMJ"
+ *
+ *  Author: LGKahn kahn-st@lgk.com
+ *  version 2 user defineable timeout before checking if door opened or closed correctly. Raised default to 25 secs. You can reduce it to 15 secs. if you have custom simulated door with < 6 sec wait.
+ * Version 3. add code to get name of device so messages don't alwasy says garage door for instance if you are using it on a fence gate etc.
+ * Version 4 . Port to Hubitat. 
+*  version 4.1 change doorcontrol to virtualgaragedoor for hubitat.
+
+* lgk 2/24 v 4.2 add option to blink a light x times with y delay between each blink before closing
+*/
+
+
+
+definition(
+    name: "Virtual Garage Door SMJ",
+    namespace: "smj_garage",
+    author: "SMJ / LGKahn",
+    description: "Sync simulated garage door with physical sensor and Konnected button.",
+    category: "Convenience",
+    iconUrl: "https://s3.amazonaws.com/smartapp-icons/Meta/garage_contact.png",
+    iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Meta/garage_contact@2x.png",
+    singleInstance: false,
+     parent: "smj_garage:Virtual Garage Door Manager" // Nests it under the Parent
+)
+
+preferences {
+    section("Choose the Konnected button that triggers the garage door?") {
+        input "opener", "capability.pushableButton", title: "Garage Door Button (Konnected)?", required: true, multiple: false
+    }
+    section("Choose the sensor that senses if the garage is open/closed?") {
+        input "sensor", "capability.contactSensor", title: "Physical Garage Door Open/Closed?", required: true
+    }
+    section("Choose the Virtual Garage Door Device?") {
+        input "virtualgd", "capability.garageDoorControl", title: "Virtual Garage Door?", required: true
+    }
+    section("Choose the Virtual Garage Door Device sensor?") {
+        input "virtualgdbutton", "capability.contactSensor", title: "Virtual Garage Door Open/Close Sensor?", required: true
+    }
+    section("Door Operation & Safety Timing") {
+        input "operationDelay", "number", title: "Seconds to wait before verifying door state?", required: true, defaultValue: 25
+    }
+    section("Audible Warning (Konnected Buzzer)") {
+        input "buzzer", "capability.pushableButton", title: "Choose Buzzer Button?", required: false, multiple: false
+        input "buzzerDelay", "number", title: "Delay (seconds) after buzzer before closing?", required: false, defaultValue: 3
+        input "silenceSwitch", "capability.switch", title: "Switch to silence buzzer when ON?", required: false
+    }
+    section("HSM Mode Restriction") {
+        input "allowedHsmModes", "enum", title: "Only allow garage operation in these HSM modes:",
+              options: ["disarmed": "Disarmed", "armedHome": "Home", "armedAway": "Away", "armedNight": "Night", "custom1": "Custom 1", "custom2": "Custom 2", "custom3": "Custom 3"],
+              multiple: true, required: false, defaultValue: ["disarmed"]
+        input "notifyHsmBlocked", "bool", title: "Send notification when operation is blocked by HSM?", required: true, defaultValue: true
+    }
+    section("Notifications") {
+        input "sendPushMessage", "capability.notification", title: "Send Push Notifications?", multiple: true, required: false
+    }
+    section("Logging") {
+        input "debug", "bool", title: "Enable debug logging?", required: true, defaultValue: false
+        input "descLog", "bool", title: "Enable descriptionText logging?", required: true, defaultValue: true
+    }
+}
+
+def installed() {
+    subscribe(sensor, "contact", contactHandler)
+    subscribe(virtualgdbutton, "contact", virtualgdcontactHandler)
+    if (sensor.currentContact != virtualgd.currentContact) {
+        sensor.currentContact == "open" ? virtualgd.open() : virtualgd.close()
+    }
+    setupLogging()
+}
+
+def updated() {
+    unsubscribe()
+    unschedule()
+    subscribe(sensor, "contact", contactHandler)
+    subscribe(virtualgdbutton, "contact", virtualgdcontactHandler)
+    setupLogging()
+}
+
+def contactHandler(evt) {
+    def vState = virtualgd.currentContact
+    if (evt.value == "open" && vState != "open") { mysend("$virtualgd.displayName Opened (Manual Sync)"); virtualgd.open() }
+    if (evt.value == "closed" && vState != "closed") { mysend("$virtualgd.displayName Closed (Manual Sync)"); virtualgd.close() }
+}
+
+def virtualgdcontactHandler(evt) {
+    if (!isHsmAllowed()) {
+        if (notifyHsmBlocked) mysend("⛔ Garage operation blocked. Current HSM: ${location.hsmStatus}")
+        return
+    }
+    def realState = sensor.currentContact
+    def delay = operationDelay ?: 25
+    
+    if (evt.value == "open" && realState != "open") {
+        mysend("$virtualgd.displayName Opened. Syncing!")
+        opener.push(1)
+        runIn(delay, checkIfActuallyOpened)
+    }
+    if (evt.value == "closed" && realState != "closed") {
+        mysend("$virtualgd.displayName Closed. Syncing!")
+        closeTheDoor()
+        runIn(delay, checkIfActuallyClosed)
+    }
+}
+
+private boolean isHsmAllowed() {
+    if (!allowedHsmModes || allowedHsmModes.isEmpty()) return true
+    def current = location.hsmStatus
+    if (!current) return true
+    return allowedHsmModes.contains(current)
+}
+
+private mysend(msg) {
+    if (sendPushMessage) {
+        if (sendPushMessage instanceof List) sendPushMessage*.deviceNotification(msg)
+        else sendPushMessage.deviceNotification(msg)
+    }
+}
+
+def checkIfActuallyClosed() {
+    if (sensor.currentContact == "open" && virtualgd.currentContact == "closed") {
+        mysend("Resetting $virtualgd.displayName to Open (didn't close)!")
+        virtualgd.open()
+    }
+}
+
+def checkIfActuallyOpened() {
+    if (sensor.currentContact == "closed" && virtualgd.currentContact == "open") {
+        mysend("Resetting $virtualgd.displayName to Closed (didn't open)!")
+        virtualgd.close()
+    }
+}
+
+def closeTheDoor() {
+    def buzzerActive = buzzer ? true : false
+    if (buzzerActive && silenceSwitch && silenceSwitch?.currentSwitch == "on") {
+        buzzerActive = false
+    }
+    if (buzzerActive) {
+        buzzer.push(1)
+        def delaySec = (buzzerDelay ?: 3).toInteger()
+        if (delaySec > 0) pauseExecution(delaySec * 1000)
+    }
+    opener.push(1)
+}
+
+def logsOff() {
+    app.updateSetting("debug", [value: "false", type: "bool"])
+    log.info "Debug logging turned off."
+}
+
+def setupLogging() {
+    if (debug) {
+        log.info "Debug logging on. Will auto-disable in 30 mins."
+        runIn(1800, logsOff)
+    }
+}
